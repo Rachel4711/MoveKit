@@ -100,3 +100,20 @@ export async function getOrdersForUser(userId: string) {
     items: items.filter((item) => item.orderId === order.id),
   }));
 }
+
+export async function getAllOrders() {
+  const db = getDb();
+  const allOrders = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(100);
+  if (allOrders.length === 0) return [];
+  const items = await db.select().from(orderItems)
+    .where(inArray(orderItems.orderId, allOrders.map((order) => order.id)));
+  return allOrders.map((order) => ({
+    ...order,
+    items: items.filter((item) => item.orderId === order.id),
+  }));
+}
+
+export async function updateOrderStatus(orderId: string, status: string) {
+  await getDb().update(orders).set({ status, updatedAt: new Date().toISOString() })
+    .where(eq(orders.id, orderId));
+}

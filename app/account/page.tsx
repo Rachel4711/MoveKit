@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogOut, PackageOpen } from "lucide-react";
 import { chatGPTSignOutPath, requireChatGPTUser } from "@/app/chatgpt-auth";
 import { getOrdersForUser } from "@/db/orders";
+import { isAdminEmail } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,12 @@ function formatMoney(cents: number, currency: string) {
 export default async function AccountPage() {
   const user = await requireChatGPTUser("/account");
   const orders = await getOrdersForUser(user.userId);
+  const isAdmin = isAdminEmail(user.email);
 
   return <main className="account-page">
     <header className="account-heading">
       <div><span className="eyebrow">MoveKit member</span><h1>Hi, {user.displayName}.</h1><p>{user.email}</p></div>
-      <a className="account-signout" href={chatGPTSignOutPath("/")} target="_top"><LogOut size={17} /> Sign out</a>
+      <div className="account-actions">{isAdmin && <Link className="account-signout" href="/admin">Manage store</Link>}<a className="account-signout" href={chatGPTSignOutPath("/")} target="_top"><LogOut size={17} /> Sign out</a></div>
     </header>
     <section aria-labelledby="orders-heading">
       <div className="section-heading account-section-heading"><div><span className="eyebrow">Order history</span><h2 id="orders-heading">Your gear</h2></div></div>

@@ -66,3 +66,15 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
     throw error;
   }
 }
+
+export async function createProduct(product: Product) {
+  await getDb().insert(productsTable).values(toInsert(product));
+}
+
+export async function updateProduct(slug: string, product: Product) {
+  await getDb().update(productsTable).set(toInsert({ ...product, slug })).where(eq(productsTable.slug, slug));
+}
+
+export async function deleteProduct(slug: string) {
+  await getDb().delete(productsTable).where(eq(productsTable.slug, slug));
+}
