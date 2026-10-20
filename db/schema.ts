@@ -1,4 +1,15 @@
-// Intentionally empty by default.
-// Add Drizzle tables here when the site actually needs a database.
-// See examples/d1/db/schema.ts for an opt-in example.
-export {};
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+
+export const products = sqliteTable("products", {
+  slug: text("slug").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  priceInCents: integer("price_in_cents").notNull(),
+  description: text("description").notNull(),
+  image: text("image").notNull(),
+  accent: text("accent").notNull(),
+  badge: text("badge"),
+  variantsJson: text("variants_json").notNull().default("[]"),
+  inventory: integer("inventory").notNull().default(0),
+  featured: integer("featured", { mode: "boolean" }).notNull().default(false),
+});

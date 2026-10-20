@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownRight, Play } from "lucide-react";
+import { ArrowDownRight, Play } from "lucide-react"; //lucide-react is an icon library that provides ready-made React icon components.
 
 export function Hero() {
   return <section className="hero">

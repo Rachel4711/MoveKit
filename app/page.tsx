@@ -4,7 +4,9 @@ import { Hero } from "@/components/hero";
 import { KitBuilder } from "@/components/kit-builder";
 import { Newsletter } from "@/components/newsletter";
 import { ProductShowcase } from "@/components/product-showcase";
+import { getProducts } from "@/db/products";
 
-export default function HomePage() {
-  return <main><Hero /><CategoryGrid /><ProductShowcase /><Benefits /><KitBuilder /><Newsletter /></main>;
+export default async function HomePage() {
+  const products = await getProducts();
+  return <main><Hero /><CategoryGrid /><ProductShowcase products={products} /><Benefits /><KitBuilder /><Newsletter /></main>;
 }

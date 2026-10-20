@@ -3,10 +3,18 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Product } from "@/lib/products";
 
-type CartItem = Pick<Product, "slug" | "name" | "price"> & { quantity: number };
+export type CartItem = Pick<Product, "slug" | "name" | "price" | "image"> & {
+  id: string;
+  variant: string;
+  quantity: number;
+};
 type CartContextValue = {
   items: CartItem[]; itemCount: number; total: number; isOpen: boolean;
-  addItem: (product: Product) => void; removeItem: (slug: string) => void; setOpen: (open: boolean) => void;
+  addItem: (product: Product, variant: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  removeItem: (id: string) => void;
+  clearCart: () => void;
+  setOpen: (open: boolean) => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -35,16 +43,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
     total: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     isOpen,
-    addItem: (product) => {
+    addItem: (product, variant) => {
+      const id = `${product.slug}:${variant}`;
       setItems((current) => {
-        const exists = current.some((item) => item.slug === product.slug);
+        const exists = current.some((item) => item.id === id);
         return exists
-          ? current.map((item) => item.slug === product.slug ? { ...item, quantity: item.quantity + 1 } : item)
-          : [...current, { slug: product.slug, name: product.name, price: product.price, quantity: 1 }];
+          ? current.map((item) => item.id === id ? { ...item, quantity: item.quantity + 1 } : item)
+          : [...current, { id, slug: product.slug, name: product.name, price: product.price, image: product.image, variant, quantity: 1 }];
       });
       setOpen(true);
     },
-    removeItem: (slug) => setItems((current) => current.filter((item) => item.slug !== slug)),
+    updateQuantity: (id, quantity) => setItems((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item)),
+    removeItem: (id) => setItems((current) => current.filter((item) => item.id !== id)),
+    clearCart: () => setItems([]),
     setOpen,
   }), [items, isOpen]);
 
