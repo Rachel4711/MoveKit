@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Product } from "@/lib/products";
+import { seedProducts } from "@/lib/products";
 
 export type CartItem = Pick<Product, "slug" | "name" | "price" | "image"> & {
   id: string;
@@ -20,6 +21,55 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = "movekit-cart";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+// Browser storage can contain an older cart shape, so validate and migrate it
+// before the UI receives it. TypeScript types alone cannot protect runtime data.
+function parseStoredCart(saved: string): CartItem[] {
+  try {
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.flatMap((value): CartItem[] => {
+      if (!isRecord(value)) return [];
+
+      const catalogProduct = seedProducts.find((product) =>
+        product.slug === value.slug || product.name === value.name
+      );
+      const slug = typeof value.slug === "string" ? value.slug : catalogProduct?.slug;
+      const name = typeof value.name === "string" ? value.name : catalogProduct?.name;
+      const image = typeof value.image === "string" && value.image
+        ? value.image
+        : catalogProduct?.image;
+      const price = typeof value.price === "number" && Number.isFinite(value.price)
+        ? value.price
+        : catalogProduct?.price;
+      const variant = typeof value.variant === "string" && value.variant
+        ? value.variant
+        : catalogProduct?.variants[0] ?? "Standard";
+      const quantity = typeof value.quantity === "number" && Number.isFinite(value.quantity)
+        ? Math.max(1, Math.floor(value.quantity))
+        : 1;
+
+      if (!slug || !name || !image || price === undefined) return [];
+
+      return [{
+        id: `${slug}:${variant}`,
+        slug,
+        name,
+        price,
+        image,
+        variant,
+        quantity,
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setOpen] = useState(false);
@@ -29,7 +79,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) setItems(JSON.parse(saved));
+      if (saved) setItems(parseStoredCart(saved));
       setStorageReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
