@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
+import { CheckoutButton } from "@/components/checkout-button";
 
 export function CartDrawer() {
   const { items, total, isOpen, updateQuantity, removeItem, clearCart, setOpen } = useCart();
@@ -19,7 +20,7 @@ export function CartDrawer() {
         <button className="clear-cart" onClick={clearCart}>Clear bag</button>
       </>}
       <div className="cart-total"><span>Total</span><strong>${total.toFixed(2)}</strong></div>
-      <button className="button button-primary button-full" disabled={!items.length}>Checkout — coming next</button>
+      <CheckoutButton items={items} />
     </aside>
   </div>;
 }
