@@ -7,6 +7,7 @@ type StripeSession = {
 };
 
 type StripeCheckoutEvent = {
+  id: string;
   type: string;
   data: {
     object: {

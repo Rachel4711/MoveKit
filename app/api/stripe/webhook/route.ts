@@ -1,4 +1,4 @@
-import { markOrderPaid } from "@/db/orders";
+import { finalizePaidOrder } from "@/db/orders";
 import { verifyStripeWebhook } from "@/lib/stripe";
 
 export async function POST(request: Request) {
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const orderId = session.metadata?.order_id;
-      if (orderId) await markOrderPaid(orderId, session.customer_details?.email ?? undefined);
+      if (orderId) await finalizePaidOrder(event.id, orderId, session.customer_details?.email ?? undefined);
     }
     return Response.json({ received: true });
   } catch (error) {

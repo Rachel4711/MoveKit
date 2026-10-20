@@ -16,6 +16,7 @@ export const products = sqliteTable("products", {
 
 export const orders = sqliteTable("orders", {
   id: text("id").primaryKey(),
+  userId: text("user_id"),
   stripeSessionId: text("stripe_session_id").unique(),
   status: text("status").notNull().default("pending"),
   customerEmail: text("customer_email"),
@@ -23,6 +24,11 @@ export const orders = sqliteTable("orders", {
   subtotalInCents: integer("subtotal_in_cents").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+});
+
+export const paymentEvents = sqliteTable("payment_events", {
+  id: text("id").primaryKey(),
+  processedAt: text("processed_at").notNull(),
 });
 
 // Order items keep a purchase-time snapshot so later product edits do not

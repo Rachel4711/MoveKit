@@ -20,7 +20,7 @@ export function Header() {
       </nav>
       <div className="header-actions">
         <button className="icon-button desktop-action" aria-label="Search"><Search size={20} /></button>
-        <button className="icon-button desktop-action" aria-label="Account"><UserRound size={20} /></button>
+        <Link className="icon-button desktop-action" href="/account" aria-label="Account and orders"><UserRound size={20} /></Link>
         <button className="icon-button cart-button" aria-label={`Open cart with ${itemCount} items`} onClick={() => setOpen(true)}><ShoppingBag size={20} /><span>{itemCount}</span></button>
         <button className="icon-button menu-button" aria-label="Toggle menu" onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={22} /> : <Menu size={22} />}</button>
       </div>

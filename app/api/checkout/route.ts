@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createPendingOrder, attachStripeSession, markOrderCheckoutFailed } from "@/db/orders";
 import { getProducts } from "@/db/products";
 import { createStripeCheckoutSession, isStripeConfigured } from "@/lib/stripe";
+import { getChatGPTUser } from "@/app/chatgpt-auth";
 
 const checkoutSchema = z.object({
   items: z.array(z.object({
@@ -12,6 +13,9 @@ const checkoutSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "Please sign in before checkout." }, { status: 401 });
+
   if (!isStripeConfigured()) {
     return Response.json(
       { error: "Stripe test checkout is not configured yet." },
@@ -38,7 +42,7 @@ export async function POST(request: Request) {
         quantity: item.quantity,
       };
     });
-    const order = await createPendingOrder(lines);
+    const order = await createPendingOrder(lines, user);
     orderId = order.orderId;
     const session = await createStripeCheckoutSession(orderId, lines, new URL(request.url).origin);
     await attachStripeSession(orderId, session.id);

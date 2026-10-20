@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Product } from "@/lib/products";
 import { seedProducts } from "@/lib/products";
 
-export type CartItem = Pick<Product, "slug" | "name" | "price" | "image"> & {
+export type CartItem = Pick<Product, "slug" | "name" | "price" | "image" | "inventory"> & {
   id: string;
   variant: string;
   quantity: number;
@@ -46,6 +46,9 @@ function parseStoredCart(saved: string): CartItem[] {
       const price = typeof value.price === "number" && Number.isFinite(value.price)
         ? value.price
         : catalogProduct?.price;
+      const inventory = catalogProduct?.inventory ?? (
+        typeof value.inventory === "number" ? Math.max(0, Math.floor(value.inventory)) : 0
+      );
       const variant = typeof value.variant === "string" && value.variant
         ? value.variant
         : catalogProduct?.variants[0] ?? "Standard";
@@ -53,7 +56,7 @@ function parseStoredCart(saved: string): CartItem[] {
         ? Math.max(1, Math.floor(value.quantity))
         : 1;
 
-      if (!slug || !name || !image || price === undefined) return [];
+      if (!slug || !name || !image || price === undefined || inventory === 0) return [];
 
       return [{
         id: `${slug}:${variant}`,
@@ -61,6 +64,7 @@ function parseStoredCart(saved: string): CartItem[] {
         name,
         price,
         image,
+        inventory,
         variant,
         quantity,
       }];
@@ -98,12 +102,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setItems((current) => {
         const exists = current.some((item) => item.id === id);
         return exists
-          ? current.map((item) => item.id === id ? { ...item, quantity: item.quantity + 1 } : item)
-          : [...current, { id, slug: product.slug, name: product.name, price: product.price, image: product.image, variant, quantity: 1 }];
+          ? current.map((item) => item.id === id
+            ? { ...item, inventory: product.inventory, quantity: Math.min(item.quantity + 1, product.inventory) }
+            : item)
+          : product.inventory > 0
+            ? [...current, { id, slug: product.slug, name: product.name, price: product.price, image: product.image, inventory: product.inventory, variant, quantity: 1 }]
+            : current;
       });
       setOpen(true);
     },
-    updateQuantity: (id, quantity) => setItems((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item)),
+    updateQuantity: (id, quantity) => setItems((current) => current.map((item) => item.id === id
+      ? { ...item, quantity: Math.min(item.inventory, Math.max(1, quantity)) }
+      : item)),
     removeItem: (id) => setItems((current) => current.filter((item) => item.id !== id)),
     clearCart: () => setItems([]),
     setOpen,
