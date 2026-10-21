@@ -10,6 +10,16 @@ export type OrderLine = {
   quantity: number;
 };
 
+export type PaymentDetails = {
+  customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
+  shippingAddress?: Record<string, string | null | undefined>;
+  paymentIntentId?: string;
+  discountInCents?: number;
+  totalInCents?: number;
+};
+
 export async function createPendingOrder(lines: OrderLine[], user: { userId: string; email: string }) {
   const db = getDb();
   const orderId = crypto.randomUUID();
@@ -54,7 +64,7 @@ export async function markOrderCheckoutFailed(orderId: string) {
   }).where(eq(orders.id, orderId));
 }
 
-export async function finalizePaidOrder(eventId: string, orderId: string, customerEmail?: string) {
+export async function finalizePaidOrder(eventId: string, orderId: string, details: PaymentDetails = {}) {
   const db = getDb();
   const [processedEvent] = await db.select({ id: paymentEvents.id }).from(paymentEvents)
     .where(eq(paymentEvents.id, eventId)).limit(1);
@@ -84,7 +94,15 @@ export async function finalizePaidOrder(eventId: string, orderId: string, custom
         .where(and(eq(products.slug, line.productSlug), gte(products.inventory, line.quantity)))),
       db.update(orders).set({
         status: "paid",
-        customerEmail: customerEmail ?? order.customerEmail,
+        customerEmail: details.customerEmail ?? order.customerEmail,
+        customerName: details.customerName ?? order.customerName,
+        customerPhone: details.customerPhone ?? order.customerPhone,
+        shippingAddressJson: details.shippingAddress
+          ? JSON.stringify(details.shippingAddress)
+          : order.shippingAddressJson,
+        paymentIntentId: details.paymentIntentId ?? order.paymentIntentId,
+        discountInCents: details.discountInCents ?? order.discountInCents,
+        totalInCents: details.totalInCents ?? order.subtotalInCents,
         updatedAt: new Date().toISOString(),
       }).where(and(eq(orders.id, orderId), ne(orders.status, "paid"))),
     ]);
@@ -107,6 +125,26 @@ export async function getOrderForCheckoutSession(stripeSessionId: string, userId
     .where(and(eq(orders.stripeSessionId, stripeSessionId), eq(orders.userId, userId)))
     .limit(1);
   return order;
+}
+
+export async function getOrderForUser(orderId: string, userId: string) {
+  const db = getDb();
+  const [order] = await db.select().from(orders)
+    .where(and(eq(orders.id, orderId), eq(orders.userId, userId))).limit(1);
+  if (!order) return undefined;
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+  return { ...order, items };
+}
+
+export async function hasPurchasedProduct(userId: string, productSlug: string) {
+  const [row] = await getDb().select({ id: orders.id }).from(orders)
+    .innerJoin(orderItems, eq(orderItems.orderId, orders.id))
+    .where(and(
+      eq(orders.userId, userId),
+      eq(orderItems.productSlug, productSlug),
+      inArray(orders.status, ["paid", "processing", "shipped", "delivered"]),
+    )).limit(1);
+  return Boolean(row);
 }
 
 export async function getOrdersForUser(userId: string) {
@@ -137,7 +175,20 @@ export async function getAllOrders() {
   }));
 }
 
-export async function updateOrderStatus(orderId: string, status: string) {
-  await getDb().update(orders).set({ status, updatedAt: new Date().toISOString() })
+export async function getOrderById(orderId: string) {
+  const [order] = await getDb().select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  return order;
+}
+
+export async function updateOrderFulfillment(
+  orderId: string,
+  values: { status: string; carrier?: string; trackingNumber?: string },
+) {
+  await getDb().update(orders).set({
+    status: values.status,
+    carrier: values.carrier?.trim() || null,
+    trackingNumber: values.trackingNumber?.trim() || null,
+    updatedAt: new Date().toISOString(),
+  })
     .where(eq(orders.id, orderId));
 }

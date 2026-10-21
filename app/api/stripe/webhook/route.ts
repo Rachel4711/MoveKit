@@ -13,7 +13,16 @@ export async function POST(request: Request) {
       || (event.type === "checkout.session.completed" && session.payment_status === "paid");
 
     if (orderId && paymentSucceeded) {
-      await finalizePaidOrder(event.id, orderId, session.customer_details?.email ?? undefined);
+      const shipping = session.shipping_details;
+      await finalizePaidOrder(event.id, orderId, {
+        customerEmail: session.customer_details?.email ?? undefined,
+        customerName: shipping?.name ?? session.customer_details?.name ?? undefined,
+        customerPhone: session.customer_details?.phone ?? undefined,
+        shippingAddress: shipping?.address ?? session.customer_details?.address ?? undefined,
+        paymentIntentId: session.payment_intent ?? undefined,
+        discountInCents: session.total_details?.amount_discount ?? undefined,
+        totalInCents: session.amount_total ?? undefined,
+      });
     } else if (orderId && event.type === "checkout.session.async_payment_failed") {
       await markStripeOrderFailed(orderId, "payment_failed");
     } else if (orderId && event.type === "checkout.session.expired") {

@@ -12,10 +12,28 @@ type StripeCheckoutEvent = {
   data: {
     object: {
       metadata?: { order_id?: string };
-      customer_details?: { email?: string | null };
+      customer_details?: {
+        email?: string | null;
+        name?: string | null;
+        phone?: string | null;
+        address?: StripeAddress | null;
+      };
+      shipping_details?: { name?: string | null; address?: StripeAddress | null } | null;
+      payment_intent?: string | null;
+      amount_total?: number | null;
+      total_details?: { amount_discount?: number | null } | null;
       payment_status?: "paid" | "unpaid" | "no_payment_required";
     };
   };
+};
+
+type StripeAddress = {
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
 };
 
 export type StripeCheckoutSession = StripeSession & {
@@ -52,6 +70,7 @@ export async function createStripeCheckoutSession(
     billing_address_collection: "required",
     "phone_number_collection[enabled]": "true",
     "shipping_address_collection[allowed_countries][0]": "MY",
+    allow_promotion_codes: "true",
   });
 
   lines.forEach((line, index) => {
@@ -84,6 +103,22 @@ export async function retrieveStripeCheckoutSession(sessionId: string) {
   });
   const data = await response.json() as StripeCheckoutSession & { error?: { message?: string } };
   if (!response.ok) throw new Error(data.error?.message ?? "Unable to verify the Stripe checkout.");
+  return data;
+}
+
+export async function refundStripePayment(paymentIntentId: string, orderId: string) {
+  const form = new URLSearchParams({ payment_intent: paymentIntentId, "metadata[order_id]": orderId });
+  const response = await fetch("https://api.stripe.com/v1/refunds", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getSecret("STRIPE_SECRET_KEY")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Idempotency-Key": `movekit-refund-${orderId}`,
+    },
+    body: form,
+  });
+  const data = await response.json() as { id?: string; error?: { message?: string } };
+  if (!response.ok) throw new Error(data.error?.message ?? "Stripe could not refund this payment.");
   return data;
 }
 

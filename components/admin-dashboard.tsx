@@ -11,6 +11,13 @@ type AdminOrder = {
   subtotalInCents: number;
   currency: string;
   createdAt: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  shippingAddressJson: string | null;
+  carrier: string | null;
+  trackingNumber: string | null;
+  discountInCents: number;
+  totalInCents: number | null;
   items: Array<{ id: string; productName: string; variant: string; quantity: number }>;
 };
 
@@ -62,14 +69,18 @@ export function AdminDashboard({ products, orders }: { products: Product[]; orde
     setMessage("Product deleted."); router.refresh();
   }
 
-  async function setOrderStatus(orderId: string, status: string) {
+  async function saveFulfillment(form: HTMLFormElement, orderId: string) {
+    const data = new FormData(form);
+    const status = String(data.get("status") ?? "");
     if (!status) return;
+    if (status === "refunded" && !window.confirm("Issue a Stripe refund for this order? This cannot be undone.")) return;
     setBusy(orderId); setMessage("");
     const response = await fetch(`/api/admin/orders/${orderId}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, carrier: data.get("carrier"), trackingNumber: data.get("trackingNumber") }),
     });
     setBusy("");
-    if (!response.ok) return setMessage("Order update failed.");
+    const result = await response.json() as { error?: string };
+    if (!response.ok) return setMessage(result.error ?? "Order update failed.");
     setMessage("Order status updated."); router.refresh();
   }
 
@@ -77,6 +88,6 @@ export function AdminDashboard({ products, orders }: { products: Product[]; orde
     {message && <p className="admin-message" role="status">{message}</p>}
     <section><h2>Add product</h2><form onSubmit={(event) => { event.preventDefault(); void submitProduct(event.currentTarget); }}><ProductFields /><button className="button button-primary" disabled={busy === "new"}>{busy === "new" ? "Saving…" : "Create product"}</button></form></section>
     <section><h2>Manage products</h2><div className="admin-product-list">{products.map((product) => <details key={product.slug}><summary><strong>{product.name}</strong><span>{product.inventory} in stock · ${product.price}</span></summary><form onSubmit={(event) => { event.preventDefault(); void submitProduct(event.currentTarget, product.slug); }}><ProductFields product={product} /><div className="admin-actions"><button className="button button-primary" disabled={busy === product.slug}>Save changes</button><button type="button" className="button button-danger" onClick={() => void removeProduct(product.slug)}>Delete</button></div></form></details>)}</div></section>
-    <section><h2>Manage orders</h2>{orders.length === 0 ? <p className="admin-muted">No orders yet.</p> : <div className="admin-order-list">{orders.map((order) => <article key={order.id}><div><strong>#{order.id.slice(0, 8).toUpperCase()}</strong><span>{order.customerEmail ?? "No customer email"}</span><small>{order.items.map((item) => `${item.productName} (${item.variant}) × ${item.quantity}`).join(", ")}</small></div><div><strong>${(order.subtotalInCents / 100).toFixed(2)}</strong><select value={orderStatuses.includes(order.status) ? order.status : ""} disabled={busy === order.id} onChange={(event) => void setOrderStatus(order.id, event.target.value)}><option value="" disabled>{order.status.replace("_", " ")}</option>{orderStatuses.map((status) => <option key={status} value={status}>{status.replace("_", " ")}</option>)}</select></div></article>)}</div>}</section>
+    <section><h2>Manage orders</h2>{orders.length === 0 ? <p className="admin-muted">No orders yet.</p> : <div className="admin-order-list">{orders.map((order) => { const address = order.shippingAddressJson ? JSON.parse(order.shippingAddressJson) as Record<string, string | null> : null; return <article key={order.id}><div><strong>#{order.id.slice(0, 8).toUpperCase()}</strong><span>{order.customerName ?? order.customerEmail ?? "No customer details"}</span><small>{order.items.map((item) => `${item.productName} (${item.variant}) × ${item.quantity}`).join(", ")}</small>{address && <address>{address.line1}, {address.postal_code} {address.city}, {address.state}</address>}</div><form onSubmit={(event) => { event.preventDefault(); void saveFulfillment(event.currentTarget, order.id); }}><strong>${((order.totalInCents ?? order.subtotalInCents) / 100).toFixed(2)}</strong><select name="status" defaultValue={orderStatuses.includes(order.status) ? order.status : "processing"} disabled={busy === order.id}>{orderStatuses.map((status) => <option key={status} value={status}>{status.replace("_", " ")}</option>)}</select><input name="carrier" defaultValue={order.carrier ?? ""} placeholder="Carrier (e.g. Pos Laju)" /><input name="trackingNumber" defaultValue={order.trackingNumber ?? ""} placeholder="Tracking number" /><button className="button button-primary" disabled={busy === order.id}>Save fulfillment</button></form></article>; })}</div>}</section>
   </div>;
 }

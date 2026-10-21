@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const products = sqliteTable("products", {
   slug: text("slug").primaryKey(),
@@ -20,10 +20,44 @@ export const orders = sqliteTable("orders", {
   stripeSessionId: text("stripe_session_id").unique(),
   status: text("status").notNull().default("pending"),
   customerEmail: text("customer_email"),
+  customerName: text("customer_name"),
+  customerPhone: text("customer_phone"),
+  shippingAddressJson: text("shipping_address_json"),
+  paymentIntentId: text("payment_intent_id"),
+  carrier: text("carrier"),
+  trackingNumber: text("tracking_number"),
   currency: text("currency").notNull().default("usd"),
   subtotalInCents: integer("subtotal_in_cents").notNull(),
+  discountInCents: integer("discount_in_cents").notNull().default(0),
+  totalInCents: integer("total_in_cents"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+});
+
+export const reviews = sqliteTable("reviews", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  productSlug: text("product_slug").notNull().references(() => products.slug),
+  customerName: text("customer_name").notNull(),
+  rating: integer("rating").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [uniqueIndex("reviews_user_product_unique").on(table.userId, table.productSlug)]);
+
+export const savedAddresses = sqliteTable("saved_addresses", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  label: text("label").notNull(),
+  recipient: text("recipient").notNull(),
+  phone: text("phone").notNull(),
+  line1: text("line1").notNull(),
+  line2: text("line2"),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  postalCode: text("postal_code").notNull(),
+  country: text("country").notNull().default("MY"),
+  createdAt: text("created_at").notNull(),
 });
 
 export const paymentEvents = sqliteTable("payment_events", {

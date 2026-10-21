@@ -37,5 +37,6 @@ export function CheckoutButton({ items }: { items: CartItem[] }) {
       {isLoading ? "Opening secure checkout…" : "Checkout securely"}
     </button>
     {error && <p className="checkout-error" role="alert">{error}</p>}
+    <p className="checkout-promo-note">Promotion codes can be entered securely on Stripe Checkout.</p>
   </>;
 }
