@@ -25,6 +25,8 @@ export type StripeCheckoutSession = StripeSession & {
 };
 
 function getSecret(name: "STRIPE_SECRET_KEY" | "STRIPE_WEBHOOK_SECRET") {
+  // Stripe credentials are injected by the hosting platform and never shipped
+  // to the browser bundle or stored in the repository.
   const value = (env as unknown as Record<string, string | undefined>)[name];
   if (!value) throw new Error(`${name} is not configured.`);
   return value;
