@@ -12,6 +12,21 @@ MoveKit is a full-stack fitness-accessories storefront built as a portfolio proj
 - Protected admin dashboard for products, images, inventory, and fulfillment
 - Cloudflare D1 persistence and R2 product-image storage
 
+## Development approach
+
+MoveKit was developed as a vibe-coding portfolio project using AI-assisted development. AI helped with planning, implementation, debugging, documentation, and code review.
+
+Throughout the project, I actively participated by:
+
+- Defining the store concept, requirements, and visual direction
+- Reviewing and studying the generated code
+- Configuring Stripe test checkout and webhooks
+- Testing the cart, checkout, orders, and administration features
+- Learning the React, TypeScript, database, and API concepts used
+- Making product and development-scope decisions
+
+The project demonstrates both practical full-stack development concepts and the ability to collaborate effectively with AI development tools. AI-generated code was reviewed, validated with TypeScript and ESLint, and tested before deployment.
+
 ## Architecture
 
 ```mermaid
@@ -34,7 +49,7 @@ Prices, inventory checks, authorization, and payment confirmation are enforced s
 | Area | Technology |
 | --- | --- |
 | UI | React 19, TypeScript, HTML, CSS, Lucide icons |
-| Framework | Next.js-compatible Vinext runtime on Cloudflare Workers |
+| Framework | Next.js |
 | Validation | Zod |
 | Database | Cloudflare D1, Drizzle ORM and migrations |
 | Files | Cloudflare R2 |
