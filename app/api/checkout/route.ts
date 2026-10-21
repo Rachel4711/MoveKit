@@ -44,7 +44,12 @@ export async function POST(request: Request) {
     });
     const order = await createPendingOrder(lines, user);
     orderId = order.orderId;
-    const session = await createStripeCheckoutSession(orderId, lines, new URL(request.url).origin);
+    const session = await createStripeCheckoutSession(
+      orderId,
+      lines,
+      new URL(request.url).origin,
+      user.email,
+    );
     await attachStripeSession(orderId, session.id);
     return Response.json({ url: session.url });
   } catch (error) {

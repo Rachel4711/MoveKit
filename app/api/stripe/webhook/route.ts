@@ -1,4 +1,4 @@
-import { finalizePaidOrder } from "@/db/orders";
+import { finalizePaidOrder, markStripeOrderFailed } from "@/db/orders";
 import { verifyStripeWebhook } from "@/lib/stripe";
 
 export async function POST(request: Request) {
@@ -7,10 +7,17 @@ export async function POST(request: Request) {
 
   try {
     const event = await verifyStripeWebhook(await request.text(), signature);
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-      const orderId = session.metadata?.order_id;
-      if (orderId) await finalizePaidOrder(event.id, orderId, session.customer_details?.email ?? undefined);
+    const session = event.data.object;
+    const orderId = session.metadata?.order_id;
+    const paymentSucceeded = event.type === "checkout.session.async_payment_succeeded"
+      || (event.type === "checkout.session.completed" && session.payment_status === "paid");
+
+    if (orderId && paymentSucceeded) {
+      await finalizePaidOrder(event.id, orderId, session.customer_details?.email ?? undefined);
+    } else if (orderId && event.type === "checkout.session.async_payment_failed") {
+      await markStripeOrderFailed(orderId, "payment_failed");
+    } else if (orderId && event.type === "checkout.session.expired") {
+      await markStripeOrderFailed(orderId, "expired");
     }
     return Response.json({ received: true });
   } catch (error) {

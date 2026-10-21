@@ -56,6 +56,10 @@ export async function markOrderCheckoutFailed(orderId: string) {
 
 export async function finalizePaidOrder(eventId: string, orderId: string, customerEmail?: string) {
   const db = getDb();
+  const [processedEvent] = await db.select({ id: paymentEvents.id }).from(paymentEvents)
+    .where(eq(paymentEvents.id, eventId)).limit(1);
+  if (processedEvent) return;
+
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
   if (!order || order.status === "paid") return;
 
@@ -72,17 +76,37 @@ export async function finalizePaidOrder(eventId: string, orderId: string, custom
 
   // The event record and stock updates share one D1 batch. A repeated Stripe
   // event conflicts on its primary key and rolls the entire batch back.
-  await db.batch([
-    db.insert(paymentEvents).values({ id: eventId, processedAt: new Date().toISOString() }),
-    ...lines.map((line) => db.update(products)
-      .set({ inventory: sql`${products.inventory} - ${line.quantity}` })
-      .where(and(eq(products.slug, line.productSlug), gte(products.inventory, line.quantity)))),
-    db.update(orders).set({
-      status: "paid",
-      customerEmail: customerEmail ?? order.customerEmail,
-      updatedAt: new Date().toISOString(),
-    }).where(and(eq(orders.id, orderId), ne(orders.status, "paid"))),
-  ]);
+  try {
+    await db.batch([
+      db.insert(paymentEvents).values({ id: eventId, processedAt: new Date().toISOString() }),
+      ...lines.map((line) => db.update(products)
+        .set({ inventory: sql`${products.inventory} - ${line.quantity}` })
+        .where(and(eq(products.slug, line.productSlug), gte(products.inventory, line.quantity)))),
+      db.update(orders).set({
+        status: "paid",
+        customerEmail: customerEmail ?? order.customerEmail,
+        updatedAt: new Date().toISOString(),
+      }).where(and(eq(orders.id, orderId), ne(orders.status, "paid"))),
+    ]);
+  } catch (error) {
+    // Concurrent delivery of the same Stripe event conflicts on the event ID.
+    // D1 batches are atomic, so no stock change survives that conflict.
+    const [duplicate] = await db.select({ id: paymentEvents.id }).from(paymentEvents)
+      .where(eq(paymentEvents.id, eventId)).limit(1);
+    if (!duplicate) throw error;
+  }
+}
+
+export async function markStripeOrderFailed(orderId: string, status: "payment_failed" | "expired") {
+  await getDb().update(orders).set({ status, updatedAt: new Date().toISOString() })
+    .where(and(eq(orders.id, orderId), ne(orders.status, "paid")));
+}
+
+export async function getOrderForCheckoutSession(stripeSessionId: string, userId: string) {
+  const [order] = await getDb().select().from(orders)
+    .where(and(eq(orders.stripeSessionId, stripeSessionId), eq(orders.userId, userId)))
+    .limit(1);
+  return order;
 }
 
 export async function getOrdersForUser(userId: string) {

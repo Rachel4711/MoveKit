@@ -13,8 +13,15 @@ type StripeCheckoutEvent = {
     object: {
       metadata?: { order_id?: string };
       customer_details?: { email?: string | null };
+      payment_status?: "paid" | "unpaid" | "no_payment_required";
     };
   };
+};
+
+export type StripeCheckoutSession = StripeSession & {
+  client_reference_id: string | null;
+  payment_status: "paid" | "unpaid" | "no_payment_required";
+  status: "open" | "complete" | "expired" | null;
 };
 
 function getSecret(name: "STRIPE_SECRET_KEY" | "STRIPE_WEBHOOK_SECRET") {
@@ -31,6 +38,7 @@ export async function createStripeCheckoutSession(
   orderId: string,
   lines: OrderLine[],
   origin: string,
+  customerEmail: string,
 ) {
   const form = new URLSearchParams({
     mode: "payment",
@@ -38,6 +46,10 @@ export async function createStripeCheckoutSession(
     success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/?checkout=cancelled`,
     "metadata[order_id]": orderId,
+    customer_email: customerEmail,
+    billing_address_collection: "required",
+    "phone_number_collection[enabled]": "true",
+    "shipping_address_collection[allowed_countries][0]": "MY",
   });
 
   lines.forEach((line, index) => {
@@ -61,6 +73,15 @@ export async function createStripeCheckoutSession(
 
   if (!response.ok) throw new Error(data.error?.message ?? "Stripe rejected the checkout session.");
   if (!data.url) throw new Error("Stripe did not return a checkout URL.");
+  return data;
+}
+
+export async function retrieveStripeCheckoutSession(sessionId: string) {
+  const response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+    headers: { Authorization: `Bearer ${getSecret("STRIPE_SECRET_KEY")}` },
+  });
+  const data = await response.json() as StripeCheckoutSession & { error?: { message?: string } };
+  if (!response.ok) throw new Error(data.error?.message ?? "Unable to verify the Stripe checkout.");
   return data;
 }
 
